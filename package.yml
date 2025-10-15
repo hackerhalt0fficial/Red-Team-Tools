@@ -1,7 +1,15 @@
-- name: Install tools, clone repos and start services
+- name: Install tools, download repos/releases and start services
   hosts: localhost
+  connection: local
   become: yes
   gather_facts: yes
+
+  vars:
+    sec_lists_repo: "https://github.com/danielmiessler/SecLists.git"
+    bloodhound_zip_url: "https://github.com/SpecterOps/BloodHound-Legacy/releases/download/v4.3.1/BloodHound-linux-x64.zip"
+    kerbrute_url: "https://github.com/ropnop/kerbrute/releases/download/v1.0.3/kerbrute_linux_amd64"
+    winpeas_ps1_url: "https://raw.githubusercontent.com/peass-ng/PEASS-ng/master/winPEAS/winPEASps1/winPEAS.ps1"
+    winpeas_bat_url: "https://raw.githubusercontent.com/peass-ng/PEASS-ng/master/winPEAS/winPEASbat/winPEAS.bat"
 
   tasks:
     - name: Install required apt packages
@@ -10,30 +18,67 @@
           - nginx
           - git
           - gobuster
+          - unzip
+          - curl
         state: present
         update_cache: yes
 
-    - name: Ensure /opt exists
+    - name: Ensure base directories exist
       ansible.builtin.file:
-        path: /opt
+        path: "{{ item }}"
         state: directory
         mode: '0755'
+      loop:
+        - /opt
+        - /opt/SecLists
+        - /opt/BloodHound
+        - /opt/Kerbrute
+        - /opt/Winpeas
 
     - name: Clone SecLists from GitHub
       ansible.builtin.git:
-        repo: 'https://github.com/danielmiessler/SecLists.git'
+        repo: "{{ sec_lists_repo }}"
         dest: /opt/SecLists
         version: HEAD
         update: yes
         force: no
 
-    - name: Clone BloodHound from GitHub
-      ansible.builtin.git:
-        repo: 'https://github.com/SpecterOps/BloodHound-Legacy/releases/download/v4.3.1/BloodHound-linux-x64.zip'
-        dest: /opt/Bloodhound
-        version: HEAD
-        update: yes
-        force: no
+    - name: Download BloodHound release zip
+      ansible.builtin.get_url:
+        url: "{{ bloodhound_zip_url }}"
+        dest: /tmp/bloodhound-linux-x64.zip
+        mode: '0644'
+      register: bh_zip
+
+    - name: Unarchive BloodHound to /opt/BloodHound
+      ansible.builtin.unarchive:
+        src: /tmp/bloodhound-linux-x64.zip
+        dest: /opt/BloodHound
+        remote_src: yes
+        creates: /opt/BloodHound/BloodHound-linux-x64  # adjust if archive contents differ
+
+    - name: Remove BloodHound zip (cleanup)
+      ansible.builtin.file:
+        path: /tmp/bloodhound-linux-x64.zip
+        state: absent
+
+    - name: Download kerbrute binary
+      ansible.builtin.get_url:
+        url: "{{ kerbrute_url }}"
+        dest: /opt/Kerbrute/kerbrute
+        mode: '0755'
+
+    - name: Download winPEAS PowerShell script
+      ansible.builtin.get_url:
+        url: "{{ winpeas_ps1_url }}"
+        dest: /opt/Winpeas/winPEAS.ps1
+        mode: '0644'
+
+    - name: Download winPEAS batch file
+      ansible.builtin.get_url:
+        url: "{{ winpeas_bat_url }}"
+        dest: /opt/Winpeas/winPEAS.bat
+        mode: '0644'
 
     - name: Start and enable nginx service
       ansible.builtin.service:
