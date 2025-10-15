@@ -1,0 +1,29 @@
+---
+- name: Installing and Starting the Services
+  hosts: localhost
+  become: true  # needed to install packages and start services
+
+  tasks:
+    - name: Installing nginx service
+      apt:
+        name: nginx
+        state: present
+        update_cache: true
+# ---------------------------------------------------------------
+- name: Installing Tools 
+  hosts: localhost
+  become: true
+
+  tasks:
+    - name: Installing gobuster
+      apt:
+        name: gobuster
+        starte: present
+        update_cache: true
+  
+# start the Services 
+    - name: Start and enable nginx service
+      service:
+        name: nginx
+        state: started
+        enabled: true
