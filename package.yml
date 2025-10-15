@@ -1,29 +1,42 @@
----
-- name: Installing and Starting the Services
+- name: Install tools, clone repos and start services
   hosts: localhost
-  become: true  # needed to install packages and start services
+  become: yes
+  gather_facts: yes
 
   tasks:
-    - name: Installing nginx service
-      apt:
-        name: nginx
+    - name: Install required apt packages
+      ansible.builtin.apt:
+        name:
+          - nginx
+          - git
+          - gobuster
         state: present
-        update_cache: true
-# ---------------------------------------------------------------
-- name: Installing Tools 
-  hosts: localhost
-  become: true
+        update_cache: yes
 
-  tasks:
-    - name: Installing gobuster
-      apt:
-        name: gobuster
-        starte: present
-        update_cache: true
-  
-# start the Services 
+    - name: Ensure /opt exists
+      ansible.builtin.file:
+        path: /opt
+        state: directory
+        mode: '0755'
+
+    - name: Clone SecLists from GitHub
+      ansible.builtin.git:
+        repo: 'https://github.com/danielmiessler/SecLists.git'
+        dest: /opt/SecLists
+        version: HEAD
+        update: yes
+        force: no
+
+    - name: Clone BloodHound from GitHub
+      ansible.builtin.git:
+        repo: 'https://github.com/SpecterOps/BloodHound-Legacy/releases/download/v4.3.1/BloodHound-linux-x64.zip'
+        dest: /opt/Bloodhound
+        version: HEAD
+        update: yes
+        force: no
+
     - name: Start and enable nginx service
-      service:
+      ansible.builtin.service:
         name: nginx
         state: started
         enabled: true
